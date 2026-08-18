@@ -1,0 +1,64 @@
+server:
+  port: 8080
+  tomcat:
+    max-swallow-size: 10MB
+  error:
+    whitelabel:
+      enabled: false
+
+spring:
+  application:
+    name: speech-service
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/speech_service?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    hikari:
+      connection-timeout: 5000
+      initialization-fail-timeout: 5000
+      data-source-properties:
+        connectTimeout: 5000
+        socketTimeout: 5000
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  sql:
+    init:
+      mode: ${SQL_INIT_MODE:never}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+iflytek:
+  iat:
+    app-id: ${IFLYTEK_APP_ID:}
+    api-key: ${IFLYTEK_API_KEY:}
+    api-secret: ${IFLYTEK_API_SECRET:}
+    endpoint: ${IFLYTEK_IAT_ENDPOINT:wss://iat.cn-huabei-1.xf-yun.com/v1}
+    connect-timeout: 10s
+    result-timeout: 75s
+  tts:
+    app-id: ${IFLYTEK_APP_ID:}
+    api-key: ${IFLYTEK_API_KEY:}
+    api-secret: ${IFLYTEK_API_SECRET:}
+    endpoint: ${IFLYTEK_TTS_ENDPOINT:wss://tts-api.xfyun.cn/v2/tts}
+    connect-timeout: 10s
+    result-timeout: 30s
+    vcn: ${IFLYTEK_TTS_VCN:x4_lingxiaolu_oral}
+    speed: 50
+    volume: 50
+    pitch: 50
+
+deepseek:
+  api-key: ${DEEPSEEK_API_KEY:}
+  base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+  model: ${DEEPSEEK_MODEL:deepseek-chat}
+  max-tokens: 2048
+  temperature: 0.7
+
+app:
+  upload:
+    dir: ${UPLOAD_DIR:uploads}
+    url-prefix: /uploads

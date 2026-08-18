@@ -1,0 +1,18 @@
+# Dependencies
+backend/target/
+frontend/node_modules/
+frontend/dist/
+.pnpm-store/
+frontend/.corepack/
+.m2-cache/
+.npm-cache/
+
+# IDE and OS
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Environment and logs
+.env
+*.log
