@@ -63,7 +63,9 @@ public class WebSocketConfig implements WebServerFactoryCustomizer<TomcatServlet
                 return true;
             }
             return originHeaderValue.startsWith("http://localhost:")
-                    || originHeaderValue.startsWith("http://127.0.0.1:");
+                    || originHeaderValue.startsWith("http://127.0.0.1:")
+                    || originHeaderValue.startsWith("https://servicewechat.com")
+                    || originHeaderValue.startsWith("https://developers.weixin.qq.com");
         }
     }
 }
