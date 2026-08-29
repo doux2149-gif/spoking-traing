@@ -71,6 +71,40 @@
         </el-form>
       </div>
 
+      <!-- DeepSeek 配置 -->
+      <div v-if="isAdmin" class="profile-card">
+        <div class="card-title">
+          <el-icon><Key /></el-icon>
+          <span>DeepSeek 配置</span>
+        </div>
+        <p class="settings-description">
+          配置后，系统内所有用户的 AI 对话都会使用此 Key。密钥仅在服务端加密保存，不会再次显示。
+        </p>
+        <el-alert
+          :title="deepSeekConfigured ? 'DeepSeek Key 已配置' : '尚未配置 DeepSeek Key'"
+          :type="deepSeekConfigured ? 'success' : 'warning'"
+          :closable="false"
+          show-icon
+          class="settings-status"
+        />
+        <el-form class="profile-form" label-width="100px" @submit.prevent="saveDeepSeekKey">
+          <el-form-item label="API Key">
+            <el-input
+              v-model="deepSeekApiKey"
+              type="password"
+              show-password
+              autocomplete="new-password"
+              placeholder="输入新的 DeepSeek API Key"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="deepSeekSaving" :disabled="!deepSeekApiKey.trim()" @click="saveDeepSeekKey">
+              保存 Key
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+
       <!-- 修改密码 -->
       <div class="profile-card">
         <div class="card-title">
@@ -122,9 +156,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, type FormInstance, type FormRules, type UploadRequestOptions } from 'element-plus'
-import { Avatar, User, Lock, Upload } from '@element-plus/icons-vue'
+import { Avatar, User, Lock, Upload, Key } from '@element-plus/icons-vue'
 import { useUserStore } from '../store/user'
 import { getUserProfile, updateProfile, changePassword, uploadAvatar } from '../api/profile'
+import { getDeepSeekSettingStatus, updateDeepSeekApiKey } from '../api/settings'
 
 const userStore = useUserStore()
 const userInfo = userStore.state.userInfo
@@ -136,6 +171,10 @@ const avatarUrl = ref(userInfo?.avatar || '')
 const avatarUploading = ref(false)
 const profileSaving = ref(false)
 const passwordSaving = ref(false)
+const deepSeekConfigured = ref(false)
+const deepSeekApiKey = ref('')
+const deepSeekSaving = ref(false)
+const isAdmin = userStore.isAdmin()
 
 const profileForm = reactive({
   username: '',
@@ -200,6 +239,33 @@ async function loadProfile(): Promise<void> {
     }
   } catch (_e) {
     // 静默
+  }
+}
+
+async function loadDeepSeekSetting(): Promise<void> {
+  if (!isAdmin) return
+  try {
+    const res = await getDeepSeekSettingStatus()
+    deepSeekConfigured.value = Boolean((res as any)?.data?.configured)
+  } catch (_e) {
+    // 错误已由拦截器处理
+  }
+}
+
+async function saveDeepSeekKey(): Promise<void> {
+  const apiKey = deepSeekApiKey.value.trim()
+  if (!apiKey || deepSeekSaving.value) return
+
+  deepSeekSaving.value = true
+  try {
+    await updateDeepSeekApiKey(apiKey)
+    deepSeekConfigured.value = true
+    deepSeekApiKey.value = ''
+    ElMessage.success('DeepSeek Key 保存成功')
+  } catch (_e) {
+    // 错误已由拦截器处理
+  } finally {
+    deepSeekSaving.value = false
   }
 }
 
@@ -308,6 +374,7 @@ async function savePassword(): Promise<void> {
 
 onMounted(() => {
   void loadProfile()
+  void loadDeepSeekSetting()
 })
 </script>
 
@@ -399,6 +466,17 @@ onMounted(() => {
   font-size: 12px;
   color: #9ca3af;
   margin: 0;
+}
+
+.settings-description {
+  margin: -8px 0 16px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.settings-status {
+  margin-bottom: 18px;
 }
 
 /* 表单 */

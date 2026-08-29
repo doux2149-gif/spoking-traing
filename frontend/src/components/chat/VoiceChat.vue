@@ -80,6 +80,7 @@ interface Message {
 const messages = ref<Message[]>([])
 const status = shallowRef<'idle' | 'recording' | 'recognizing' | 'thinking' | 'speaking'>('idle')
 const errorMessage = shallowRef('')
+const textInput = shallowRef('')
 const chatContainer = ref<HTMLElement | null>(null)
 
 /** 上下文管理元信息(是否截断/token估算/是否触发摘要) */
@@ -253,47 +254,83 @@ async function stopAndProcess(): Promise<void> {
       return
     }
 
-    // 确保会话存在
-    await ensureConversation()
-
-    messages.value.push({ role: 'user', content: userText })
-    scrollToBottom()
-
-    // 场景模式:统计对话轮数
-    if (effectiveSceneMode.value) {
-      practiceRounds.value++
-      if (!practiceStartTime.value) {
-        practiceStartTime.value = Date.now()
-      }
-    }
-
-    status.value = 'thinking'
-
-    const assistantMsg: Message = { role: 'assistant', content: '' }
-    messages.value.push(assistantMsg)
-
-    await streamChatAndSpeak(messages.value.slice(0, -1), assistantMsg)
-
-    // 保存用户消息和 AI 回复到会话
-    const lastUserMsg = messages.value[messages.value.length - 2]
-    if (lastUserMsg && lastUserMsg.role === 'user') {
-      const grammar = lastUserMsg.grammar
-      await saveMessageToConversation(
-        'user',
-        lastUserMsg.content,
-        grammar ? JSON.stringify(grammar) : null,
-        grammar ? !grammar.noError : false,
-        grammar ? !grammar.noError && grammar.suggestion && grammar.suggestion.level !== 'none' : false
-      )
-    }
-    if (assistantMsg.content) {
-      await saveMessageToConversation('assistant', assistantMsg.content, null, false, false)
-    }
-
-    status.value = 'idle'
+    await sendUserText(userText)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '处理失败'
     status.value = 'idle'
+  }
+}
+
+async function sendTypedMessage(): Promise<void> {
+  const text = textInput.value.trim()
+  if (!text || status.value !== 'idle') return
+
+  errorMessage.value = ''
+  textInput.value = ''
+  try {
+    await sendUserText(text)
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '处理失败'
+  }
+}
+
+async function sendUserText(userText: string): Promise<void> {
+  await ensureConversation()
+
+  messages.value.push({ role: 'user', content: userText })
+  scrollToBottom()
+
+  if (effectiveSceneMode.value) {
+    practiceRounds.value++
+    if (!practiceStartTime.value) {
+      practiceStartTime.value = Date.now()
+    }
+  }
+
+  status.value = 'thinking'
+  const assistantMsg: Message = { role: 'assistant', content: '' }
+  messages.value.push(assistantMsg)
+
+  try {
+    await streamChatAndSpeak(messages.value.slice(0, -1), assistantMsg)
+    await saveConversationMessages(assistantMsg)
+  } catch (error) {
+    if (!assistantMsg.content) {
+      messages.value.pop()
+    }
+    throw error
+  } finally {
+    status.value = 'idle'
+  }
+}
+
+async function saveConversationMessages(assistantMsg: Message): Promise<void> {
+  const lastUserMsg = messages.value[messages.value.length - 2]
+  if (lastUserMsg?.role === 'user') {
+    const grammar = lastUserMsg.grammar
+    await saveMessageToConversation(
+      'user',
+      lastUserMsg.content,
+      grammar ? JSON.stringify(grammar) : null,
+      grammar ? !grammar.noError : false,
+      grammar ? !grammar.noError && Boolean(grammar.suggestion && grammar.suggestion.level !== 'none') : false
+    )
+  }
+  if (assistantMsg.content) {
+    await saveMessageToConversation('assistant', assistantMsg.content, null, false, false)
+  }
+}
+
+function playAltText(text: string): void {
+  fetchTtsBlob(text, 'catherine')
+    .then(blob => playBlob(blob))
+    .catch(() => {})
+}
+
+function handleTextInputKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault()
+    void sendTypedMessage()
   }
 }
 
@@ -625,6 +662,7 @@ function clearChat(): void {
   // 结束当前会话
   void endCurrentConversation()
   messages.value = []
+  textInput.value = ''
   errorMessage.value = ''
   ctxMeta.value = null
   // 重置场景选择状态,显示场景选择面板
@@ -833,6 +871,25 @@ onMounted(async () => {
 
         <p v-if="errorMessage" class="field-error" role="alert">{{ errorMessage }}</p>
 
+        <div class="text-input-bar">
+          <textarea
+            v-model="textInput"
+            class="text-input"
+            rows="2"
+            placeholder="输入文字消息，Enter 发送，Shift+Enter 换行"
+            :disabled="status !== 'idle'"
+            @keydown="handleTextInputKeydown"
+          />
+          <button
+            class="text-send-button"
+            type="button"
+            :disabled="status !== 'idle' || !textInput.trim()"
+            @click="sendTypedMessage"
+          >
+            发送
+          </button>
+        </div>
+
         <div class="voice-buttons">
           <button
             v-if="status === 'idle'"
@@ -1009,6 +1066,55 @@ onMounted(async () => {
   justify-content: space-between;
   font-size: 11px;
   color: var(--color-muted, #999);
+}
+
+.text-input-bar {
+  display: flex;
+  width: min(100%, 640px);
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.text-input {
+  min-height: 44px;
+  flex: 1;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e2e2e2);
+  border-radius: 8px;
+  color: var(--color-text, #1a1a1a);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.text-input:focus {
+  outline: 2px solid var(--color-primary, #4f46e5);
+  outline-offset: -1px;
+}
+
+.text-send-button {
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-primary, #4f46e5);
+  border-radius: 8px;
+  background: var(--color-primary, #4f46e5);
+  color: #fff;
+  font-weight: 600;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.text-send-button:hover:not(:disabled) {
+  background: var(--color-primary-hover, #4338ca);
+}
+
+.text-send-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.text-send-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .voice-buttons {
@@ -1199,5 +1305,16 @@ onMounted(async () => {
   font-size: 13px;
   color: #409eff;
   font-weight: 500;
+}
+
+@media (max-width: 560px) {
+  .text-input-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .text-send-button {
+    width: 100%;
+  }
 }
 </style>

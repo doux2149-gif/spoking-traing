@@ -1,6 +1,7 @@
 package com.example.speech.service.deepseek;
 
 import com.example.speech.config.DeepSeekProperties;
+import com.example.speech.service.AppSettingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -20,11 +21,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class DeepSeekClient {
     private final DeepSeekProperties properties;
+    private final AppSettingService appSettingService;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
-    public DeepSeekClient(DeepSeekProperties properties, ObjectMapper objectMapper) {
+    public DeepSeekClient(DeepSeekProperties properties,
+                          AppSettingService appSettingService,
+                          ObjectMapper objectMapper) {
         this.properties = properties;
+        this.appSettingService = appSettingService;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
@@ -38,14 +43,14 @@ public class DeepSeekClient {
     public void streamChat(List<ChatMessage> messages,
                            Consumer<String> onChunk,
                            BiConsumer<String, UsageInfo> onComplete) {
-        properties.validate();
+        String apiKey = resolveApiKey();
         String requestBody = buildRequestBody(messages, true);
         URI chatUri = properties.baseUrl().resolve("/chat/completions");
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(chatUri)
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + properties.apiKey())
+                .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .timeout(Duration.ofSeconds(60))
                 .build();
@@ -103,13 +108,13 @@ public class DeepSeekClient {
 
     /** 带 usage 返回的非流式对话 */
     public ChatResponse chatWithUsage(List<ChatMessage> messages) {
-        properties.validate();
+        String apiKey = resolveApiKey();
         String requestBody = buildRequestBody(messages, false);
         URI chatUri = properties.baseUrl().resolve("/chat/completions");
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(chatUri)
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + properties.apiKey())
+                .header("Authorization", "Bearer " + apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .timeout(Duration.ofSeconds(60))
                 .build();
@@ -139,6 +144,14 @@ public class DeepSeekClient {
     /** 兼容旧方法(不含 usage) */
     public String chat(List<ChatMessage> messages) {
         return chatWithUsage(messages).content();
+    }
+
+    private String resolveApiKey() {
+        String apiKey = appSettingService.getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("DeepSeek API Key 未配置，请联系管理员配置");
+        }
+        return apiKey;
     }
 
     private String buildRequestBody(List<ChatMessage> messages, boolean stream) {

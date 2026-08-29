@@ -32,6 +32,16 @@ mvn spring-boot:run
 
 后端默认运行于 `http://localhost:8080`。生产环境应通过系统环境变量或密钥管理服务注入凭证，不要提交真实密钥。
 
+平台 DeepSeek Key 配置
+
+管理员可在网站“个人中心”配置 DeepSeek API Key。Key 会在后端使用 AES-GCM 加密后保存，所有用户的聊天请求都会使用该配置。部署后端时必须设置一个固定的 32 字节环境变量作为加密主密钥，密钥变更会导致已保存的 Key 无法解密：
+
+```bash
+export APP_SETTINGS_ENCRYPTION_KEY=一段固定的32字节字符串
+```
+
+未配置平台 Key 时，系统仍会回退使用 `DEEPSEEK_API_KEY` 环境变量。
+
 ## 前端启动
 
 ```bash
