@@ -1,33 +1,35 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
-      <div class="login-header">
-        <h1>AI 英语口语对话系统</h1>
-        <p>欢迎登录</p>
-      </div>
-      <el-form ref="formRef" :model="form" :rules="rules" class="login-form">
-        <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" size="large" prefix-icon="User" />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input
-            v-model="form.password"
-            type="password"
-            placeholder="请输入密码"
-            size="large"
-            prefix-icon="Lock"
-            show-password
-            @keyup.enter="handleLogin"
-          />
-        </el-form-item>
-        <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">
-          登录
-        </el-button>
-        <div class="login-footer">
-          <span>还没有账号？</span>
-          <router-link to="/register" class="link">立即注册</router-link>
+  <div class="login-container" :style="{ backgroundImage: `url(${bgImage})` }">
+    <div class="login-right">
+      <div class="login-box">
+        <div class="login-header">
+          <h1>AI 英语口语对话系统</h1>
+          <p>欢迎登录</p>
         </div>
-      </el-form>
+        <el-form ref="formRef" :model="form" :rules="rules" class="login-form">
+          <el-form-item prop="username">
+            <el-input v-model="form.username" placeholder="请输入用户名" size="large" prefix-icon="User" />
+          </el-form-item>
+          <el-form-item prop="password">
+            <el-input
+              v-model="form.password"
+              type="password"
+              placeholder="请输入密码"
+              size="large"
+              prefix-icon="Lock"
+              show-password
+              @keyup.enter="handleLogin"
+            />
+          </el-form-item>
+          <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">
+            登录
+          </el-button>
+          <div class="login-footer">
+            <span>还没有账号？</span>
+            <router-link to="/register" class="link">立即注册</router-link>
+          </div>
+        </el-form>
+      </div>
     </div>
   </div>
 </template>
@@ -38,6 +40,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useUserStore } from '../store/user'
+import bgImage from '@/assets/login-bg.png'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -76,29 +79,48 @@ const handleLogin = async () => {
 <style scoped>
 .login-container {
   min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.login-right {
+  position: relative;
+  z-index: 1;
+  width: 460px;
+  max-width: 90vw;
+  margin-right: 8%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .login-box {
-  width: 400px;
-  padding: 40px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  padding: 48px 40px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 36px;
 }
 
 .login-header h1 {
-  font-size: 22px;
+  font-size: 26px;
   color: #303133;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
 }
 
 .login-header p {
@@ -106,25 +128,57 @@ const handleLogin = async () => {
   font-size: 14px;
 }
 
+.login-form :deep(.el-form-item) {
+  margin-bottom: 20px;
+}
+
 .login-form :deep(.el-input__wrapper) {
-  border-radius: 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08) inset;
+}
+
+.login-form :deep(.el-input__inner) {
+  color: #303133;
+}
+
+.login-form :deep(.el-input__inner::placeholder) {
+  color: #c0c4cc;
+}
+
+.login-form :deep(.el-input__prefix .el-icon) {
+  color: #909399;
+}
+
+.login-form :deep(.el-input__password .el-icon) {
+  color: #909399;
+}
+
+.login-form :deep(.el-input.is-focus .el-input__wrapper) {
+  box-shadow: 0 0 0 1px #409EFF inset;
 }
 
 .login-btn {
   width: 100%;
-  margin-top: 20px;
-  border-radius: 6px;
+  margin-top: 12px;
+  border-radius: 10px;
+  height: 44px;
+  font-size: 16px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #409EFF 0%, #66b1ff 100%);
+  border: none;
 }
 
 .login-footer {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 24px;
   font-size: 14px;
   color: #909399;
 }
 
 .link {
   color: #409EFF;
+  font-weight: 500;
   text-decoration: none;
 }
 

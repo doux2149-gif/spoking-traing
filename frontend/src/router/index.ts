@@ -22,37 +22,40 @@ const routes: RouteRecordRaw[] = [
     children: [
       {
         path: '',
-        redirect: '/chat'
+        redirect: () => {
+          const userStore = useUserStore()
+          return userStore.isAdmin() ? '/system/user' : '/chat'
+        }
       },
       {
         path: 'chat',
         name: 'VoiceChat',
         component: () => import('../views/ChatView.vue'),
-        meta: { title: '语音对话', requiresAuth: true }
+        meta: { title: '语音对话', requiresAuth: true, requiresUser: true }
       },
       {
         path: 'scenes',
         name: 'SceneList',
         component: () => import('../views/SceneList.vue'),
-        meta: { title: '场景练习', requiresAuth: true }
+        meta: { title: '场景练习', requiresAuth: true, requiresUser: true }
       },
       {
         path: 'scenes/:id/practice',
         name: 'ScenePractice',
         component: () => import('../views/ScenePractice.vue'),
-        meta: { title: '场景对话', requiresAuth: true }
+        meta: { title: '场景对话', requiresAuth: true, requiresUser: true }
       },
       {
         path: 'scenes/records',
         name: 'PracticeRecords',
         component: () => import('../views/PracticeRecords.vue'),
-        meta: { title: '练习记录', requiresAuth: true }
+        meta: { title: '练习记录', requiresAuth: true, requiresUser: true }
       },
       {
         path: 'checkin',
         name: 'Checkin',
         component: () => import('../views/CheckinView.vue'),
-        meta: { title: '我的打卡', requiresAuth: true }
+        meta: { title: '我的打卡', requiresAuth: true, requiresUser: true }
       },
       {
         path: 'profile',
@@ -82,7 +85,10 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/chat'
+    redirect: () => {
+      const userStore = useUserStore()
+      return userStore.isAdmin() ? '/system/user' : '/chat'
+    }
   }
 ]
 
@@ -111,6 +117,11 @@ router.beforeEach((to, _from, next) => {
 
   if (to.meta.requiresAdmin && !userStore.isAdmin()) {
     next('/chat')
+    return
+  }
+
+  if (to.meta.requiresUser && userStore.isAdmin()) {
+    next('/system/user')
     return
   }
 

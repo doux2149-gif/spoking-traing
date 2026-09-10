@@ -229,6 +229,7 @@ onMounted(() => {
 .chat-layout {
   display: flex;
   height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -393,5 +394,6 @@ onMounted(() => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 </style>

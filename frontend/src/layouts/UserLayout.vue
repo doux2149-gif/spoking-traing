@@ -39,7 +39,7 @@
     >
       <router-view />
     </main>
-    <footer class="user-footer">
+    <footer v-if="!isFullWidth" class="user-footer">
       <p>© 2024 AI 英语口语对话系统 · 雅思口语练习 · 对话内容会保存至历史记录</p>
     </footer>
   </div>
@@ -80,10 +80,11 @@ const handleCommand = (command: string) => {
 
 <style scoped>
 .user-layout {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+  overflow: hidden;
 }
 
 .user-header {
@@ -184,6 +185,7 @@ const handleCommand = (command: string) => {
   padding: 24px;
   width: 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .user-main--full {
@@ -191,6 +193,7 @@ const handleCommand = (command: string) => {
   padding: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .user-main--white {

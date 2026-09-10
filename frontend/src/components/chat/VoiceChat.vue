@@ -335,7 +335,7 @@ function handleTextInputKeydown(event: KeyboardEvent): void {
 }
 
 async function recognizeSpeech(pcmData: Uint8Array): Promise<string> {
-  const blob = new Blob([pcmData], { type: 'audio/pcm' })
+  const blob = new Blob([pcmData as BlobPart], { type: 'audio/pcm' })
   const file = new File([blob], 'voice.pcm', { type: 'audio/pcm' })
 
   const formData = new FormData()
@@ -845,100 +845,113 @@ onMounted(async () => {
       </div>
 
       <div class="voice-chat-controls">
-        <label v-if="!effectiveSceneMode" class="field-group vcn-select">
-          <span class="field-label">AI 语音</span>
-          <select v-model="vcn" :disabled="status !== 'idle'">
-            <option v-for="option in VCN_OPTIONS" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
-        </label>
-
-        <label v-if="!effectiveSceneMode" class="field-group speed-field">
-          <span class="field-label">语速 ({{ speed }})</span>
-          <input
-            v-model.number="speed"
-            type="range"
-            min="0"
-            max="100"
-            step="5"
-            :disabled="status !== 'idle'"
-          >
-          <span class="speed-labels"><span>慢</span><span>快</span></span>
-        </label>
-
-        <p class="voice-status" aria-live="polite">{{ statusLabel }}</p>
-
         <p v-if="errorMessage" class="field-error" role="alert">{{ errorMessage }}</p>
 
-        <div class="text-input-bar">
-          <textarea
-            v-model="textInput"
-            class="text-input"
-            rows="2"
-            placeholder="输入文字消息，Enter 发送，Shift+Enter 换行"
-            :disabled="status !== 'idle'"
-            @keydown="handleTextInputKeydown"
-          />
-          <button
-            class="text-send-button"
-            type="button"
-            :disabled="status !== 'idle' || !textInput.trim()"
-            @click="sendTypedMessage"
-          >
-            发送
-          </button>
-        </div>
-
-        <div class="voice-buttons">
+        <!-- ChatGPT 风格大圆角输入框 -->
+        <div class="gpt-input-wrap">
+          <!-- 左侧麦克风按钮 -->
           <button
             v-if="status === 'idle'"
-            class="mic-button"
+            class="gpt-icon-btn gpt-icon-btn--left"
             type="button"
+            title="开始说话"
             @click="startRecording"
           >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="1" width="6" height="13" rx="3" />
               <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
               <line x1="12" y1="19" x2="12" y2="23" />
               <line x1="8" y1="23" x2="16" y2="23" />
             </svg>
-            开始说话
           </button>
-
           <button
             v-else-if="status === 'recording'"
-            class="mic-button mic-button--active"
+            class="gpt-icon-btn gpt-icon-btn--left gpt-icon-btn--recording"
             type="button"
+            title="停止录音"
             @click="stopAndProcess"
           >
-            <span class="pulse-ring" aria-hidden="true" />
-            停止 ({{ elapsedSeconds }}s)
+            <span class="pulse-ring" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="1" width="6" height="13" rx="3" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
           </button>
-
-          <div v-else class="voice-processing">
-            <span class="spinner" aria-hidden="true" />
+          <div v-else class="gpt-icon-btn gpt-icon-btn--left gpt-icon-btn--processing">
+            <span class="spinner" />
           </div>
 
-          <button
-            v-if="effectiveSceneMode"
-            class="secondary-button finish-button"
-            type="button"
+          <!-- 输入区域 -->
+          <textarea
+            v-model="textInput"
+            class="gpt-textarea"
+            rows="1"
+            placeholder="输入消息，Enter 发送，Shift+Enter 换行"
             :disabled="status !== 'idle'"
-            @click="finishPractice"
-          >
-            结束练习
-          </button>
+            @keydown="handleTextInputKeydown"
+          />
 
+          <!-- 右侧发送按钮 -->
           <button
-            v-else
-            class="secondary-button"
+            class="gpt-send-btn"
             type="button"
-            :disabled="status !== 'idle'"
-            @click="clearChat"
+            :disabled="status !== 'idle' || !textInput.trim()"
+            @click="sendTypedMessage"
           >
-            清空对话
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="19" x2="12" y2="5" />
+              <polyline points="5 12 12 5 19 12" />
+            </svg>
           </button>
+        </div>
+
+        <!-- 底部状态和设置 -->
+        <div class="gpt-footer">
+          <span class="gpt-status" aria-live="polite">{{ statusLabel }}</span>
+
+          <div class="gpt-settings">
+            <div v-if="!effectiveSceneMode" class="gpt-setting-item">
+              <span class="gpt-setting-label">语音</span>
+              <select v-model="vcn" :disabled="status !== 'idle'" class="gpt-select">
+                <option v-for="option in VCN_OPTIONS" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+            <div v-if="!effectiveSceneMode" class="gpt-setting-item">
+              <span class="gpt-setting-label">语速</span>
+              <input
+                v-model.number="speed"
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                :disabled="status !== 'idle'"
+                class="gpt-range"
+              />
+              <span class="gpt-setting-value">{{ speed }}</span>
+            </div>
+            <button
+              v-if="effectiveSceneMode"
+              class="gpt-action gpt-action--danger"
+              type="button"
+              :disabled="status !== 'idle'"
+              @click="finishPractice"
+            >
+              结束练习
+            </button>
+            <button
+              v-else
+              class="gpt-action"
+              type="button"
+              :disabled="status !== 'idle'"
+              @click="clearChat"
+            >
+              清空对话
+            </button>
+          </div>
         </div>
       </div>
     </template>
@@ -949,7 +962,8 @@ onMounted(async () => {
 .voice-chat-shell {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  height: 100%;
+  min-height: 0;
 }
 
 .ctx-truncated-banner {
@@ -984,15 +998,13 @@ onMounted(async () => {
 }
 
 .voice-chat-messages {
-  max-height: 360px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--color-border, #e2e2e2);
-  border-radius: 10px;
-  background: var(--color-surface, #fafafa);
+  gap: 12px;
+  padding: 24px;
 }
 
 .voice-chat-empty {
@@ -1002,24 +1014,30 @@ onMounted(async () => {
 }
 
 .voice-msg {
-  max-width: 80%;
-  padding: 10px 14px;
-  border-radius: 12px;
-  line-height: 1.5;
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 16px;
+  line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
+  box-sizing: border-box;
 }
 
 .voice-msg--user {
   align-self: flex-end;
-  background: var(--color-primary, #4f46e5);
+  background: linear-gradient(135deg, #409EFF 0%, #66b1ff 100%);
   color: white;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.25);
 }
 
 .voice-msg--ai {
   align-self: flex-start;
-  background: var(--color-surface-alt, #f0f0f0);
-  color: var(--color-text, #1a1a1a);
+  background: #fff;
+  color: #303133;
+  border: 1px solid #ebeef5;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .voice-msg-role {
@@ -1027,7 +1045,7 @@ onMounted(async () => {
   font-size: 11px;
   font-weight: 600;
   opacity: 0.7;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
 }
 
 .voice-msg-content {
@@ -1041,118 +1059,223 @@ onMounted(async () => {
 }
 
 .voice-chat-controls {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 16px 24px 20px;
+  background: transparent;
 }
 
-.voice-status {
-  font-size: 13px;
-  color: var(--color-muted, #666);
-}
-
-.speed-field {
-  width: 100%;
-  max-width: 240px;
-}
-
-.speed-field input[type="range"] {
-  width: 100%;
-}
-
-.speed-labels {
+/* GPT 风格大圆角输入框 */
+.gpt-input-wrap {
   display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--color-muted, #999);
-}
-
-.text-input-bar {
-  display: flex;
-  width: min(100%, 640px);
   align-items: flex-end;
   gap: 8px;
-}
-
-.text-input {
-  min-height: 44px;
-  flex: 1;
-  resize: vertical;
   padding: 10px 12px;
-  border: 1px solid var(--color-border, #e2e2e2);
-  border-radius: 8px;
-  color: var(--color-text, #1a1a1a);
-  font: inherit;
-  line-height: 1.5;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.text-input:focus {
-  outline: 2px solid var(--color-primary, #4f46e5);
-  outline-offset: -1px;
+.gpt-input-wrap:focus-within {
+  border-color: #409EFF;
+  box-shadow: 0 2px 16px rgba(64, 158, 255, 0.15);
 }
 
-.text-send-button {
-  min-width: 64px;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 1px solid var(--color-primary, #4f46e5);
-  border-radius: 8px;
-  background: var(--color-primary, #4f46e5);
-  color: #fff;
-  font-weight: 600;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.text-send-button:hover:not(:disabled) {
-  background: var(--color-primary-hover, #4338ca);
-}
-
-.text-send-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
-
-.text-send-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
-.voice-buttons {
+.gpt-icon-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.mic-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
+  justify-content: center;
   border: none;
-  border-radius: 999px;
-  background: var(--color-primary, #4f46e5);
-  color: white;
-  font-size: 15px;
-  font-weight: 500;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #606266;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.mic-button:hover {
-  transform: scale(1.03);
-  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.3);
-}
-
-.mic-button--active {
-  background: #dc2626;
+  transition: background 0.15s, color 0.15s;
   position: relative;
 }
 
+.gpt-icon-btn:hover {
+  background: #e0e0e0;
+  color: #303133;
+}
+
+.gpt-icon-btn--recording {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+
+.gpt-icon-btn--recording:hover {
+  background: #fde2e2;
+}
+
+.gpt-icon-btn--processing {
+  background: #ecf5ff;
+  color: #409EFF;
+  cursor: not-allowed;
+}
+
+.gpt-textarea {
+  flex: 1;
+  min-height: 36px;
+  max-height: 160px;
+  padding: 8px 4px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #303133;
+  font-family: inherit;
+}
+
+.gpt-textarea::placeholder {
+  color: #c0c4cc;
+}
+
+.gpt-textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.gpt-send-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: #409EFF;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s, opacity 0.15s;
+}
+
+.gpt-send-btn:hover:not(:disabled) {
+  background: #337ecc;
+  transform: scale(1.05);
+}
+
+.gpt-send-btn:disabled {
+  background: #c0c4cc;
+  cursor: not-allowed;
+}
+
+/* 底部状态栏 */
+.gpt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 8px;
+}
+
+.gpt-status {
+  font-size: 12px;
+  color: #909399;
+}
+
+.gpt-settings {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.gpt-setting-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gpt-setting-label {
+  font-size: 12px;
+  color: #909399;
+}
+
+.gpt-select {
+  padding: 3px 8px;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #606266;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+}
+
+.gpt-select:focus {
+  border-color: #409EFF;
+}
+
+.gpt-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.gpt-range {
+  width: 80px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #409EFF;
+}
+
+.gpt-range:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gpt-setting-value {
+  font-size: 12px;
+  color: #606266;
+  min-width: 24px;
+  text-align: right;
+}
+
+.gpt-action {
+  padding: 4px 12px;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  background: #fff;
+  color: #606266;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.gpt-action:hover:not(:disabled) {
+  border-color: #409EFF;
+  color: #409EFF;
+}
+
+.gpt-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gpt-action--danger {
+  color: #f56c6c;
+  border-color: #f56c6c;
+}
+
+.gpt-action--danger:hover:not(:disabled) {
+  background: #fef0f0;
+}
+
+/* 脉冲动画 */
 .pulse-ring {
   position: absolute;
   inset: -4px;
-  border-radius: 999px;
-  border: 2px solid #dc2626;
+  border-radius: 50%;
+  border: 2px solid #f56c6c;
   animation: pulse 1.2s ease-out infinite;
 }
 
@@ -1161,17 +1284,11 @@ onMounted(async () => {
   100% { transform: scale(1.3); opacity: 0; }
 }
 
-.voice-processing {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--color-border, #e2e2e2);
-  border-top-color: var(--color-primary, #4f46e5);
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e5e5;
+  border-top-color: #409EFF;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -1180,15 +1297,11 @@ onMounted(async () => {
   to { transform: rotate(360deg); }
 }
 
-.finish-button {
-  background: #f56c6c !important;
-  color: white !important;
-  border-color: #f56c6c !important;
-}
-
-.finish-button:hover {
-  background: #e64242 !important;
-  border-color: #e64242 !important;
+.field-error {
+  font-size: 13px;
+  color: #f56c6c;
+  margin: 0;
+  padding: 0 8px;
 }
 
 /* 场景选择面板样式 */

@@ -27,7 +27,11 @@ public class IflytekTtsClient {
     }
 
     public byte[] synthesize(String text, String vcn, Integer speed) {
-        properties.validateCredentials();
+        if (properties.appId() == null || properties.appId().isBlank()
+                || properties.apiKey() == null || properties.apiKey().isBlank()
+                || properties.apiSecret() == null || properties.apiSecret().isBlank()) {
+            return new byte[0];
+        }
         String actualVcn = (vcn == null || vcn.isBlank()) ? properties.vcn() : vcn;
         int actualSpeed = (speed != null && speed >= 0 && speed <= 100) ? speed : properties.speed();
         TtsCollector collector = new TtsCollector();

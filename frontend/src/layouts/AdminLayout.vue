@@ -45,9 +45,9 @@
             <Expand v-else />
           </el-icon>
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/chat' }">首页</el-breadcrumb-item>
-            <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
-          </el-breadcrumb>
+              <el-breadcrumb-item :to="{ path: '/system/user' }">首页</el-breadcrumb-item>
+              <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
+            </el-breadcrumb>
         </div>
         <div class="header-right">
           <el-dropdown trigger="click" @command="handleCommand">
@@ -102,7 +102,10 @@ const userInfo = computed(() => userStore.state.userInfo)
 const activeMenu = computed(() => route.path)
 const currentPageTitle = computed(() => (route.meta?.title as string) || '')
 
-const rootMenus = computed(() => menus.value.filter(m => m.parentId === 0))
+const rootMenus = computed(() => menus.value
+  .filter(m => m.parentId === 0)
+  .filter(m => !m.path?.includes('chat') && !m.menuName?.includes('语音对话'))
+)
 
 const getChildMenus = (parentId: number) => {
   return menus.value.filter(m => m.parentId === parentId)
