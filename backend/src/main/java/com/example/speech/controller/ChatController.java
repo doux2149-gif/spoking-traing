@@ -15,6 +15,7 @@ import com.example.speech.service.context.ConversationContextBuilder.ContextBuil
 import com.example.speech.service.deepseek.DeepSeekClient;
 import com.example.speech.service.deepseek.DeepSeekClient.ChatMessage;
 import com.example.speech.service.deepseek.DeepSeekClient.ChatResponse;
+import com.example.speech.service.tools.ToolCallAgentService;
 import com.example.speech.util.GrammarStreamParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -38,6 +39,7 @@ public class ChatController {
     private static final Set<String> ENGLISH_VCN = Set.of("catherine", "henry");
 
     private final DeepSeekClient deepSeekClient;
+    private final ToolCallAgentService toolCallAgentService;
     private final ObjectMapper objectMapper;
     private final ConversationContextBuilder contextBuilder;
     private final LlmUsageService usageService;
@@ -46,6 +48,7 @@ public class ChatController {
     private final SysUserMapper userMapper;
 
     public ChatController(DeepSeekClient deepSeekClient,
+                          ToolCallAgentService toolCallAgentService,
                           ObjectMapper objectMapper,
                           ConversationContextBuilder contextBuilder,
                           LlmUsageService usageService,
@@ -53,6 +56,7 @@ public class ChatController {
                           ConversationMessageMapper messageMapper,
                           SysUserMapper userMapper) {
         this.deepSeekClient = deepSeekClient;
+        this.toolCallAgentService = toolCallAgentService;
         this.objectMapper = objectMapper;
         this.contextBuilder = contextBuilder;
         this.usageService = usageService;
@@ -149,7 +153,7 @@ public class ChatController {
             }
 
             try {
-                deepSeekClient.streamChat(
+                toolCallAgentService.streamChatWithTools(
                         llmMessages,
                         chunk -> {
                             try {
@@ -157,6 +161,17 @@ public class ChatController {
                                 if (textPart != null && !textPart.isEmpty()) {
                                     emitter.send(SseEmitter.event().name("text").data(textPart));
                                 }
+                            } catch (Exception ignored) {
+                            }
+                        },
+                        toolExec -> {
+                            // 工具执行事件通知(前端可选择性展示, 未监听则忽略)
+                            try {
+                                ObjectNode ev = objectMapper.createObjectNode();
+                                ev.put("name", toolExec.toolName());
+                                ev.put("arguments", toolExec.arguments());
+                                ev.put("result", toolExec.result());
+                                emitter.send(SseEmitter.event().name("tool").data(objectMapper.writeValueAsString(ev)));
                             } catch (Exception ignored) {
                             }
                         },

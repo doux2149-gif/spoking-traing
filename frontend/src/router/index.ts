@@ -80,6 +80,12 @@ const routes: RouteRecordRaw[] = [
         name: 'SceneManagement',
         component: () => import('../views/system/SceneManagement.vue'),
         meta: { title: '场景管理', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'system/tool',
+        name: 'ToolManagement',
+        component: () => import('../views/system/ToolManagement.vue'),
+        meta: { title: '工具管理', requiresAuth: true, requiresAdmin: true }
       }
     ]
   },

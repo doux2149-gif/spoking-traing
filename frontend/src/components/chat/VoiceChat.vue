@@ -70,11 +70,49 @@ function formatTime(timeStr: string): string {
   return timeStr.replace('T', ' ').substring(0, 16)
 }
 
+interface ToolEvent {
+  name: string
+  arguments: string
+  result: string
+}
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
   /** 仅 user 消息可能携带语法纠错结果 */
   grammar?: GrammarCorrection
+  /** 仅 assistant 消息:本轮工具调用记录(用于展示"正在查询 xxx"卡片) */
+  toolEvents?: ToolEvent[]
+  /** AI 回答的中文翻译(点翻译按钮后填充) */
+  translation?: string
+  /** 翻译请求进行中 */
+  translating?: boolean
+  /** 是否展开显示翻译 */
+  showTranslation?: boolean
+}
+
+/** 工具友好名称(展示用) */
+const TOOL_LABELS: Record<string, string> = {
+  get_current_datetime: '时间日期',
+  query_weather: '天气查询',
+  query_github_repo: 'GitHub 仓库',
+  query_dictionary: '词典查询',
+}
+
+function toolLabel(name: string): string {
+  return TOOL_LABELS[name] || name
+}
+
+/** 参数摘要:把 JSON 参数转成 k=v, v2 形式 */
+function toolSummary(args: string): string {
+  try {
+    const obj = JSON.parse(args) as Record<string, unknown>
+    const parts = Object.entries(obj).map(([k, v]) => `${k}=${String(v)}`)
+    const joined = parts.join(', ')
+    return joined.length > 40 ? joined.slice(0, 40) + '…' : joined
+  } catch {
+    return args.length > 40 ? args.slice(0, 40) + '…' : args
+  }
 }
 
 const messages = ref<Message[]>([])
@@ -327,6 +365,26 @@ function playAltText(text: string): void {
     .catch(() => {})
 }
 
+/** 翻译/收起 AI 回答:首次点击调翻译接口,之后切换显示 */
+async function toggleTranslation(msg: Message): Promise<void> {
+  if (msg.translating) return
+  if (msg.translation) {
+    msg.showTranslation = !msg.showTranslation
+    return
+  }
+  msg.translating = true
+  try {
+    const res = await request.post('/translate', { text: msg.content })
+    msg.translation = res?.data?.translation || '(翻译失败)'
+    msg.showTranslation = true
+  } catch {
+    msg.translation = '(翻译失败, 请稍后重试)'
+    msg.showTranslation = true
+  } finally {
+    msg.translating = false
+  }
+}
+
 function handleTextInputKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -474,6 +532,23 @@ async function streamChatAndSpeak(chatMessages: Message[], assistantMsg: Message
     }
   }
 
+  /** 处理 tool 事件:工具调用记录挂到当前 assistant 消息,渲染查询卡片 */
+  function processTool(data: string): void {
+    try {
+      const ev = JSON.parse(data) as ToolEvent
+      const last = messages.value[messages.value.length - 1]
+      if (last && last.role === 'assistant') {
+        if (!last.toolEvents) {
+          last.toolEvents = []
+        }
+        last.toolEvents.push(ev)
+        scrollToBottom()
+      }
+    } catch {
+      // 解析失败,静默丢弃
+    }
+  }
+
   /** 从 SSE 事件块中解析 event 名和 data */
   function parseSseEvent(evt: string): { eventName: string; data: string } {
     let eventName = 'message'
@@ -514,6 +589,9 @@ async function streamChatAndSpeak(chatMessages: Message[], assistantMsg: Message
         }
         case 'text':
           processTextChunk(data)
+          break
+        case 'tool':
+          processTool(data)
           break
         case 'grammar':
           processGrammar(data)
@@ -830,7 +908,40 @@ onMounted(async () => {
             :class="msg.role === 'user' ? 'voice-msg--user' : 'voice-msg--ai'"
           >
             <span class="voice-msg-role">{{ msg.role === 'user' ? '你' : 'AI' }}</span>
-            <div class="voice-msg-content" v-text="msg.content" />
+            <div class="voice-msg-body">
+              <!-- 工具调用卡片:展示本轮 AI 使用了哪些工具 -->
+              <div
+                v-if="msg.role === 'assistant' && msg.toolEvents?.length"
+                class="tool-chips"
+              >
+                <div v-for="(te, ti) in msg.toolEvents" :key="ti" class="tool-chip">
+                  <svg class="tool-chip-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <span class="tool-chip-label">{{ toolLabel(te.name) }}</span>
+                  <span v-if="toolSummary(te.arguments)" class="tool-chip-args">
+                    {{ toolSummary(te.arguments) }}
+                  </span>
+                  <span class="tool-chip-done">✓</span>
+                </div>
+              </div>
+              <div class="voice-msg-content" v-text="msg.content" />
+              <!-- 翻译按钮 + 中文翻译块(仅 AI 消息) -->
+              <div v-if="msg.role === 'assistant' && msg.content" class="translate-row">
+                <button
+                  class="translate-btn"
+                  type="button"
+                  :disabled="msg.translating"
+                  @click="toggleTranslation(msg)"
+                >
+                  {{ msg.translating ? '翻译中…' : (msg.showTranslation ? '收起翻译' : '翻译') }}
+                </button>
+              </div>
+              <div v-if="msg.role === 'assistant' && msg.showTranslation && msg.translation" class="translation-block">
+                {{ msg.translation }}
+              </div>
+            </div>
           </div>
           <div
             v-if="msg.role === 'user'
@@ -1050,6 +1161,93 @@ onMounted(async () => {
 
 .voice-msg-content {
   font-size: 14px;
+}
+
+/* 工具调用卡片 */
+.voice-msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tool-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1;
+  color: #606266;
+  background: rgba(64, 158, 255, 0.08);
+  border: 1px solid rgba(64, 158, 255, 0.2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  width: fit-content;
+}
+
+.tool-chip-icon {
+  color: #409eff;
+  flex-shrink: 0;
+}
+
+.tool-chip-label {
+  font-weight: 600;
+  color: #409eff;
+}
+
+.tool-chip-args {
+  color: #909399;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-chip-done {
+  color: #67c23a;
+  font-weight: 700;
+}
+
+/* 翻译按钮 + 翻译块 */
+.translate-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.translate-btn {
+  font-size: 12px;
+  color: #909399;
+  background: transparent;
+  border: 1px solid #dcdfe6;
+  border-radius: 999px;
+  padding: 2px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.translate-btn:hover:not(:disabled) {
+  color: #409eff;
+  border-color: #409eff;
+}
+
+.translate-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.translation-block {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #606266;
+  background: #f5f7fa;
+  border-left: 3px solid #409eff;
+  border-radius: 6px;
+  padding: 8px 12px;
 }
 
 .voice-msg-grammar {
