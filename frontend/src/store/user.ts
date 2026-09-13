@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import axios from 'axios'
 import request from '../api/request'
 
 export interface UserInfo {
@@ -89,12 +90,30 @@ export function useUserStore() {
     return res
   }
 
-  const logout = () => {
+  /** 仅清本地登录态(401 强制下线时使用, 不再回调后端) */
+  const clearLocalAuth = () => {
     state.token = ''
     state.userInfo = null
     state.menus = []
     localStorage.removeItem('token')
     localStorage.removeItem('userInfo')
+  }
+
+  /** 主动退出: best-effort 通知后端删除在线会话, 无论成败都清本地态 */
+  const logout = async () => {
+    const token = state.token
+    if (token) {
+      try {
+        // 用裸 axios 绕过响应拦截器, 避免 401 时递归弹登录
+        await axios.post('/api/auth/logout', {}, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 8000
+        })
+      } catch {
+        // 后端不可达或会话已失效都不阻塞本地退出
+      }
+    }
+    clearLocalAuth()
   }
 
   const isLoggedIn = () => !!state.token
@@ -111,6 +130,7 @@ export function useUserStore() {
     getUserInfo,
     loadMenus,
     logout,
+    clearLocalAuth,
     isLoggedIn,
     isAdmin,
     setToken,

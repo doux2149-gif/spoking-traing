@@ -6,7 +6,7 @@
     </div>
 
     <div class="difficulty-filter">
-      <el-radio-group v-model="selectedDifficulty" @change="filterScenes">
+      <el-radio-group v-model="selectedDifficulty">
         <el-radio-button :value="0">全部</el-radio-button>
         <el-radio-button :value="1">入门</el-radio-button>
         <el-radio-button :value="2">初级</el-radio-button>

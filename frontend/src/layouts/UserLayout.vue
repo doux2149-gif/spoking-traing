@@ -33,6 +33,38 @@
         </div>
       </div>
     </header>
+
+    <!-- 生效中的横幅公告(多条纵向排列, 当次会话关闭后不再出现) -->
+    <div v-if="bannerNotices.length" class="notice-strip-wrap" :class="{ 'notice-strip-wrap--full': isFullWidth }">
+      <div
+        v-for="n in bannerNotices"
+        :key="n.id"
+        class="notice-strip"
+        :class="n.noticeType === 2 ? 'notice-strip--warning' : 'notice-strip--info'"
+      >
+        <span class="notice-icon">{{ n.noticeType === 2 ? '⚠️' : '📢' }}</span>
+        <div class="notice-body">
+          <span class="notice-title">{{ n.title }}</span>
+          <span class="notice-content">{{ n.content }}</span>
+        </div>
+        <el-icon class="notice-close" @click="dismissBanner(n)"><Close /></el-icon>
+      </div>
+    </div>
+
+    <!-- 弹窗公告(未读才弹, 读过记录在 localStorage, 内容更新后重弹) -->
+    <el-dialog
+      v-model="dialogVisible"
+      :title="currentDialog?.title"
+      width="480px"
+      :close-on-click-modal="false"
+      @close="onDialogClose"
+    >
+      <div class="notice-dialog-content">{{ currentDialog?.content }}</div>
+      <template #footer>
+        <el-button type="primary" @click="dialogVisible = false">我知道了</el-button>
+      </template>
+    </el-dialog>
+
     <main
       class="user-main"
       :class="{ 'user-main--full': isFullWidth, 'user-main--white': isProfilePage }"
@@ -46,16 +78,68 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { useUserStore } from '../store/user'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, Close } from '@element-plus/icons-vue'
+import { noticeApi, type Notice } from '../api/admin'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const userInfo = userStore.state.userInfo
+
+// ---------------- 公告: 横幅 + 弹窗 ----------------
+const allNotices = ref<Notice[]>([])
+/** 当次会话内手动关闭的横幅, 不再出现 */
+const dismissedBannerIds = new Set<number>()
+const bannerNotices = computed(() =>
+  allNotices.value.filter(n => n.displayType === 1 && !dismissedBannerIds.has(n.id!))
+)
+
+function dismissBanner(n: Notice) {
+  dismissedBannerIds.add(n.id!)
+  allNotices.value = [...allNotices.value]
+}
+
+/** 未读弹窗公告队列, 依次弹出 */
+const dialogQueue = ref<Notice[]>([])
+const currentDialog = ref<Notice | null>(null)
+const dialogVisible = ref(false)
+
+const readKey = (n: Notice) => `notice_read_${n.id}_${n.updateTime ?? ''}`
+
+function showNextDialog() {
+  const next = dialogQueue.value.shift()
+  if (!next) return
+  currentDialog.value = next
+  dialogVisible.value = true
+}
+
+function onDialogClose() {
+  if (currentDialog.value) {
+    localStorage.setItem(readKey(currentDialog.value), new Date().toISOString())
+    currentDialog.value = null
+  }
+  window.setTimeout(showNextDialog, 150)
+}
+
+async function loadActiveNotices() {
+  try {
+    const res = await noticeApi.active()
+    const list: Notice[] = res.data || []
+    allNotices.value = list
+    dialogQueue.value = list.filter(
+      n => n.displayType === 2 && !localStorage.getItem(readKey(n))
+    )
+    showNextDialog()
+  } catch (e) {
+    console.error('加载公告失败', e)
+  }
+}
+
+onMounted(loadActiveNotices)
 
 /** 对话页面需要全屏布局,不限宽度和内边距 */
 const isFullWidth = computed(() => route.path === '/chat')
@@ -67,8 +151,8 @@ const handleCommand = (command: string) => {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
-    }).then(() => {
-      userStore.logout()
+    }).then(async () => {
+      await userStore.logout()
       ElMessage.success('已退出登录')
       router.push('/login')
     }).catch(() => {})
@@ -205,5 +289,81 @@ const handleCommand = (command: string) => {
   padding: 20px;
   color: #909399;
   font-size: 13px;
+}
+
+/* ---------------- 公告横幅 ---------------- */
+.notice-strip-wrap {
+  flex-shrink: 0;
+  background: #fff;
+}
+
+.notice-strip {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notice-strip--info {
+  background: #ecf5ff;
+  border-bottom: 1px solid #d9ecff;
+  color: #337ecc;
+}
+
+.notice-strip--warning {
+  background: #fdf6ec;
+  border-bottom: 1px solid #faecd8;
+  color: #b88230;
+}
+
+/* 全屏对话页时横幅顶到屏幕两侧, 与 /chat 零内边距对齐 */
+.notice-strip-wrap--full .notice-strip {
+  max-width: none;
+}
+
+.notice-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.notice-body {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notice-title {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.notice-content {
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.notice-close {
+  cursor: pointer;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.notice-close:hover {
+  opacity: 1;
+}
+
+.notice-dialog-content {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #303133;
+  white-space: pre-line;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 </style>

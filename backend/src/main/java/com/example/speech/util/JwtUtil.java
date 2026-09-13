@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -28,6 +29,7 @@ public class JwtUtil {
 
         return Jwts.builder()
                 .subject(String.valueOf(userId))
+                .id(UUID.randomUUID().toString().replace("-", ""))
                 .claim("username", username)
                 .claim("roleId", roleId)
                 .claim("roleKey", roleKey)
@@ -58,6 +60,11 @@ public class JwtUtil {
     public Long getRoleIdFromToken(String token) {
         Claims claims = parseToken(token);
         return claims.get("roleId", Long.class);
+    }
+
+    /** 会话标识 jti; 改造前签发的旧 token 没有该字段, 返回 null */
+    public String getTokenIdFromToken(String token) {
+        return parseToken(token).getId();
     }
 
     public boolean validateToken(String token) {

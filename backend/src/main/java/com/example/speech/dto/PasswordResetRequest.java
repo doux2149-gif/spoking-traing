@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 public class PasswordResetRequest {
-    @NotBlank(message = "原密码不能为空")
+    // 管理员重置他人密码时无需原密码; 普通用户修改本人密码时必填, 校验在 Service 层按角色区分
     private String oldPassword;
 
     @NotBlank(message = "新密码不能为空")

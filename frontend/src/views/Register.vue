@@ -106,8 +106,10 @@ const handleRegister = async () => {
         email: form.value.email || undefined,
         nickname: form.value.nickname || undefined
       })
-      ElMessage.success('注册成功，请登录')
-      router.push('/login')
+      // 注册成功后自动登录, 直接进入系统, 无需再跳登录页
+      await userStore.login(form.value.username, form.value.password)
+      ElMessage.success('注册成功，欢迎加入')
+      router.push('/')
     } catch (e: any) {
       ElMessage.error(e?.message || '注册失败')
     } finally {

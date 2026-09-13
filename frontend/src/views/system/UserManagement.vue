@@ -147,7 +147,7 @@ const userForm = reactive({
   email: '',
   phone: '',
   status: 1,
-  roleId: undefined as number | null
+  roleId: null as number | null
 })
 
 const userRules: FormRules = {

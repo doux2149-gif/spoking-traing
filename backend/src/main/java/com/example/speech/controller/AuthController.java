@@ -5,8 +5,11 @@ import com.example.speech.dto.LoginResponse;
 import com.example.speech.dto.RegisterRequest;
 import com.example.speech.dto.Result;
 import com.example.speech.entity.SysUser;
+import com.example.speech.service.LoginLogService;
+import com.example.speech.service.OnlineSessionService;
 import com.example.speech.service.SysMenuService;
 import com.example.speech.service.SysUserService;
+import com.example.speech.util.IpUtils;
 import com.example.speech.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -24,13 +27,22 @@ public class AuthController {
     private final SysUserService userService;
     private final SysMenuService menuService;
     private final JwtUtil jwtUtil;
+    private final LoginLogService loginLogService;
+    private final OnlineSessionService onlineSessionService;
 
     @PostMapping("/login")
-    public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        String ip = IpUtils.getClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
         try {
             LoginResponse response = userService.login(request);
+            // 登录成功: 写登录日志 + 建立在线会话(jti)
+            String tokenId = jwtUtil.getTokenIdFromToken(response.getToken());
+            onlineSessionService.createSession(tokenId, response.getUserId(), response.getUsername(), ip, userAgent);
+            loginLogService.recordSuccess(response.getUserId(), response.getUsername(), ip, userAgent);
             return Result.success(response);
         } catch (Exception e) {
+            loginLogService.recordFailure(request.getUsername(), ip, userAgent, e.getMessage());
             return Result.error(401, e.getMessage());
         }
     }
@@ -91,5 +103,20 @@ public class AuthController {
             return authHeader.substring(7);
         }
         return null;
+    }
+
+    /** 退出登录: 注销在线会话(best-effort, 旧 token 无 jti 也返回成功) */
+    @PostMapping("/logout")
+    public Result<Void> logout(HttpServletRequest request) {
+        try {
+            String token = extractToken(request);
+            if (token != null && jwtUtil.validateToken(token)) {
+                String tokenId = jwtUtil.getTokenIdFromToken(token);
+                onlineSessionService.removeSession(tokenId);
+            }
+        } catch (Exception ignored) {
+            // 即使失败也让前端清除本地登录态
+        }
+        return Result.success();
     }
 }

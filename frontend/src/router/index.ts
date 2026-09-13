@@ -4,6 +4,12 @@ import { useUserStore } from '../store/user'
 
 const routes: RouteRecordRaw[] = [
   {
+    path: '/landing',
+    name: 'Landing',
+    component: () => import('../views/Landing.vue'),
+    meta: { title: '首页', requiresAuth: false }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('../views/Login.vue'),
@@ -24,7 +30,11 @@ const routes: RouteRecordRaw[] = [
         path: '',
         redirect: () => {
           const userStore = useUserStore()
-          return userStore.isAdmin() ? '/system/user' : '/chat'
+          // 已登录: 按角色进入系统; 未登录: 去落地页
+          if (userStore.state.token) {
+            return userStore.isAdmin() ? '/system/user' : '/chat'
+          }
+          return '/landing'
         }
       },
       {
@@ -86,6 +96,36 @@ const routes: RouteRecordRaw[] = [
         name: 'ToolManagement',
         component: () => import('../views/system/ToolManagement.vue'),
         meta: { title: '工具管理', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'system/usage',
+        name: 'UsageStats',
+        component: () => import('../views/system/UsageStats.vue'),
+        meta: { title: '用量统计', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'system/notice',
+        name: 'NoticeManagement',
+        component: () => import('../views/system/NoticeManagement.vue'),
+        meta: { title: '公告管理', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'system/login-log',
+        name: 'LoginLog',
+        component: () => import('../views/system/LoginLog.vue'),
+        meta: { title: '登录日志', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'system/online',
+        name: 'OnlineUser',
+        component: () => import('../views/system/OnlineUser.vue'),
+        meta: { title: '在线用户', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'system/menu',
+        name: 'MenuManagement',
+        component: () => import('../views/system/MenuManagement.vue'),
+        meta: { title: '菜单管理', requiresAuth: true, requiresAdmin: true }
       }
     ]
   },
@@ -93,6 +133,7 @@ const routes: RouteRecordRaw[] = [
     path: '/:pathMatch(.*)*',
     redirect: () => {
       const userStore = useUserStore()
+      if (!userStore.state.token) return '/landing'
       return userStore.isAdmin() ? '/system/user' : '/chat'
     }
   }
@@ -111,7 +152,7 @@ router.beforeEach((to, _from, next) => {
     document.title = `${to.meta.title} - AI 英语口语对话系统`
   }
 
-  if (to.path === '/login' || to.path === '/register') {
+  if (to.path === '/login' || to.path === '/register' || to.path === '/landing') {
     next()
     return
   }

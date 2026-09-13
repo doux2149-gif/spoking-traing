@@ -7,6 +7,7 @@ import com.example.speech.entity.SysRole;
 import com.example.speech.entity.SysUser;
 import com.example.speech.mapper.SysRoleMapper;
 import com.example.speech.mapper.SysUserMapper;
+import com.example.speech.security.SecurityUtils;
 import com.example.speech.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -188,9 +189,12 @@ public class SysUserService {
         if (user == null) {
             throw new RuntimeException("用户不存在");
         }
-        // 验证原密码
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new RuntimeException("原密码错误");
+        // 普通用户修改本人密码必须校验原密码; 管理员重置他人密码无需原密码
+        if (!SecurityUtils.isAdmin()) {
+            if (!StringUtils.hasText(request.getOldPassword())
+                    || !passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+                throw new RuntimeException("原密码错误");
+            }
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setUpdateTime(LocalDateTime.now());

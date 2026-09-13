@@ -135,8 +135,8 @@ const handleCommand = (command: string) => {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
-    }).then(() => {
-      userStore.logout()
+    }).then(async () => {
+      await userStore.logout()
       ElMessage.success('已退出登录')
       router.push('/login')
     }).catch(() => {})
