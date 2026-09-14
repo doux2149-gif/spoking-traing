@@ -44,6 +44,9 @@
               <el-icon class="more-icon"><MoreFilled /></el-icon>
               <template #dropdown>
                 <el-dropdown-menu>
+                  <el-dropdown-item command="report">
+                    查看练习报告
+                  </el-dropdown-item>
                   <el-dropdown-item command="end" :disabled="conv.status !== 1">
                     结束对话
                   </el-dropdown-item>
@@ -188,7 +191,10 @@ function handleMilestoneCheckin(milestone: number | null): void {
 
 /** 处理下拉菜单命令 */
 async function handleCommand(cmd: string, conv: Conversation): Promise<void> {
-  if (cmd === 'end') {
+  if (cmd === 'report') {
+    // 查看已有报告; 若无则提示是否先结束对话(仅 status=2 的会话已有报告)
+    reportDialogRef.value?.show(conv.id)
+  } else if (cmd === 'end') {
     try {
       await ElMessageBox.confirm('确定要结束这个对话吗？', '提示', {
         confirmButtonText: '确定',

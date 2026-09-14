@@ -149,7 +149,7 @@ function ieltsBand(score: number | null | undefined): string {
   return '基础水平'
 }
 
-/** 对外: 开始拉取并弹窗; 会先尝试立即拿, 没拿到就后台轮询最多 30 秒 */
+/** 对外: 开始拉取并弹窗; 会先尝试立即拿, 没拿到就后台轮询最多 10 秒 */
 async function show(conversationId: number) {
   visible.value = true
   report.value = null
@@ -165,13 +165,14 @@ async function show(conversationId: number) {
         break
       }
     } catch (_e) {
-      // 继续等
+      // 404 说明会话还没结束/报告未生成, 其他错误继续等
     }
   }
 
   loading.value = false
   if (!report.value) {
-    ElMessage.warning('报告生成失败, 可稍后在历史会话中查看')
+    visible.value = false
+    ElMessage.warning('该会话还没有报告, 先在左侧菜单选择"结束对话"')
     return
   }
 
