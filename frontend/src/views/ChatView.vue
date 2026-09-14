@@ -72,6 +72,8 @@
         @conversation-changed="handleConversationChanged"
       />
     </main>
+
+    <ReportDialog ref="reportDialogRef" />
   </div>
 </template>
 
@@ -81,6 +83,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Fold, Expand, ChatDotRound, ChatLineRound, MoreFilled, ChatLineSquare } from '@element-plus/icons-vue'
 import VoiceChat from '../components/chat/VoiceChat.vue'
 import CheckinCard from '../components/chat/CheckinCard.vue'
+import ReportDialog from '../components/chat/ReportDialog.vue'
 import {
   getConversations,
   endConversation,
@@ -98,6 +101,8 @@ const chatKey = ref(0)
 const checkinRefreshKey = ref(0)
 /** 打卡卡片引用,用于手动刷新 */
 const checkinCardRef = ref<any>(null)
+/** 报告弹窗引用(侧边栏下拉结束对话时使用) */
+const reportDialogRef = ref<InstanceType<typeof ReportDialog> | null>(null)
 
 /** 连续打卡里程碑对应的激励文案 */
 const MILESTONE_MESSAGES: Record<number, string> = {
@@ -197,6 +202,8 @@ async function handleCommand(cmd: string, conv: Conversation): Promise<void> {
         chatKey.value++
       }
       handleConversationChanged()
+      // 后端已触发报告, 前端拉取并弹窗
+      reportDialogRef.value?.show(conv.id)
     } catch (_e) {
       // 用户取消
     }

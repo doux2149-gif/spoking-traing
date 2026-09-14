@@ -85,3 +85,54 @@ export function toggleConversationStar(id: number) {
 export function getActiveConversation() {
   return request.get('/conversations/active')
 }
+
+// --- 会话报告 ---
+
+export interface ConversationReport {
+  id: number
+  conversationId: number
+  userId: number
+  roundCount: number
+  duration: number
+  errorCount: number
+  suggestionCount: number
+  grammarScore: number
+  vocabularyScore: number
+  fluencyScore: number
+  pronunciationScore: number | null
+  overallScore: number
+  /** JSON 文本 */
+  topErrors: string | null
+  topSuggestions: string | null
+  summary: string | null
+  /** 0 待生成 1 规则聚合完成 2 LLM 已生成 3 失败 */
+  status: number
+  createTime: string
+  updateTime: string
+}
+
+export interface ReportTopError {
+  wrong: string
+  correct: string
+  reason: string
+  dimension: 'grammar' | 'vocabulary' | string
+}
+
+export interface ReportTopSuggestion {
+  level: 'none' | 'better' | 'advanced' | string
+  alternatives: string
+  tip: string
+  dimension: 'grammar' | 'vocabulary' | string
+}
+
+export const conversationReportApi = {
+  get: (conversationId: number) => request.get(`/conversations/${conversationId}/report`),
+  regenerate: (conversationId: number) => request.post(`/conversations/${conversationId}/report/regenerate`),
+  myReports: () => request.get('/conversations/reports')
+}
+
+/** 安全解析后端 JSON 文本字段 */
+export function parseReportJson<T>(text: string | null | undefined): T[] {
+  if (!text) return []
+  try { return JSON.parse(text) as T[] } catch { return [] }
+}

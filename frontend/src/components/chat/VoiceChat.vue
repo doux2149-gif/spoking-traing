@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, shallowRef, nextTick, computed, onMounted } from 'vue'
 import GrammarCard from './GrammarCard.vue'
+import ReportDialog from './ReportDialog.vue'
 import type { GrammarCorrection } from '../../types/grammar'
 import { useUserStore } from '../../store/user'
 import {
@@ -42,6 +43,9 @@ const emit = defineEmits<{
   /** 会话结束/删除时通知父组件刷新列表 */
   conversationChanged: []
 }>()
+
+/** 报告弹窗 ref */
+const reportDialogRef = ref<InstanceType<typeof ReportDialog> | null>(null)
 
 /** 内部场景选择状态(用于 /chat 页面的场景选择面板) */
 const availableScenes = ref<any[]>([])
@@ -719,14 +723,17 @@ async function saveMessageToConversation(
   }
 }
 
-/** 结束当前会话 */
+/** 结束当前会话, 并展示报告弹窗 */
 async function endCurrentConversation(summary?: string): Promise<void> {
   if (currentConversationId.value === null) return
+  const convId = currentConversationId.value
+  let endOk = false
   try {
     const duration = conversationStartTime.value
       ? Math.round((Date.now() - conversationStartTime.value) / 1000)
       : 0
-    await endConversation(currentConversationId.value, { duration, summary })
+    await endConversation(convId, { duration, summary })
+    endOk = true
     emit('conversationChanged')
   } catch (_e) {
     // 忽略错误
@@ -734,11 +741,16 @@ async function endCurrentConversation(summary?: string): Promise<void> {
     currentConversationId.value = null
     conversationStartTime.value = null
   }
+  // 后端已在 end 接口内触发报告生成, 这里拉取并弹窗
+  if (endOk) {
+    reportDialogRef.value?.show(convId)
+  }
 }
 
-function clearChat(): void {
-  // 结束当前会话
-  void endCurrentConversation()
+/** 清空当前对话, 结束会话并展示报告 */
+async function clearChat(): Promise<void> {
+  // 结束当前会话并生成报告 (内部会 show dialog)
+  await endCurrentConversation()
   messages.value = []
   textInput.value = ''
   errorMessage.value = ''
@@ -1066,6 +1078,8 @@ onMounted(async () => {
         </div>
       </div>
     </template>
+
+    <ReportDialog ref="reportDialogRef" />
   </div>
 </template>
 

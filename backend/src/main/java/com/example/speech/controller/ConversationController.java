@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.example.speech.dto.Result;
 import com.example.speech.entity.Conversation;
 import com.example.speech.entity.ConversationMessage;
+import com.example.speech.entity.ConversationReport;
 import com.example.speech.security.SecurityUtils;
+import com.example.speech.service.ConversationReportService;
 import com.example.speech.service.ConversationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,7 @@ import java.util.Map;
 public class ConversationController {
 
     private final ConversationService conversationService;
+    private final ConversationReportService reportService;
 
     /** 创建新会话 */
     @PostMapping
@@ -93,7 +96,7 @@ public class ConversationController {
         }
     }
 
-    /** 结束会话 */
+    /** 结束会话: 同步规则聚合报告(status=1), @Async 再生成 LLM 摘要(status=2) */
     @PutMapping("/{id}/end")
     public Result<Conversation> endConversation(@PathVariable Long id,
                                                 @RequestBody(required = false) Map<String, Object> body) {
@@ -103,10 +106,56 @@ public class ConversationController {
                     ? Integer.valueOf(body.get("duration").toString()) : null;
             String summary = body != null ? (String) body.get("summary") : null;
             Conversation conversation = conversationService.endConversation(userId, id, duration, summary);
+            try {
+                reportService.generateOnEnd(conversation);
+            } catch (Exception e) {
+                // 报告失败不影响结束会话主流程
+            }
             return Result.success(conversation);
         } catch (Exception e) {
             return Result.error(400, e.getMessage());
         }
+    }
+
+    /** 查询报告: 返回当前状态(1=规则聚合完成, 2=LLM 已生成) 与结构化内容 */
+    @GetMapping("/{id}/report")
+    public Result<ConversationReport> getReport(@PathVariable Long id) {
+        try {
+            Long userId = SecurityUtils.getCurrentUserId();
+            ConversationReport report = reportService.getByConversation(id, userId);
+            if (report == null) {
+                return Result.error(404, "报告尚未生成");
+            }
+            return Result.success(report);
+        } catch (Exception e) {
+            return Result.error(404, e.getMessage());
+        }
+    }
+
+    /** 前端手动触发/重新触发 LLM 摘要(当后端 @Async 失败或想要更新) */
+    @PostMapping("/{id}/report/regenerate")
+    public Result<ConversationReport> regenerateReport(@PathVariable Long id) {
+        try {
+            Long userId = SecurityUtils.getCurrentUserId();
+            conversationService.getConversationDetail(userId, id);
+            ConversationReport existing = reportService.getByConversation(id, userId);
+            ConversationReport report;
+            if (existing != null) {
+                report = reportService.regenerateSummary(existing.getId());
+            } else {
+                report = reportService.generateOnEnd(conversationService.getConversationDetail(userId, id));
+            }
+            return Result.success(report);
+        } catch (Exception e) {
+            return Result.error(400, e.getMessage());
+        }
+    }
+
+    /** 当前用户全部报告 */
+    @GetMapping("/reports")
+    public Result<List<ConversationReport>> getMyReports() {
+        Long userId = SecurityUtils.getCurrentUserId();
+        return Result.success(reportService.getByUser(userId));
     }
 
     /** 删除会话 */
