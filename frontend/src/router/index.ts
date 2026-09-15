@@ -74,6 +74,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '单词本', requiresAuth: true, requiresUser: true }
       },
       {
+        path: 'word-typing',
+        name: 'WordTyping',
+        component: () => import('../views/WordTyping.vue'),
+        meta: { title: '单词练习', requiresAuth: true, requiresUser: true }
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('../views/ProfileView.vue'),
