@@ -68,6 +68,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '我的打卡', requiresAuth: true, requiresUser: true }
       },
       {
+        path: 'words',
+        name: 'WordBook',
+        component: () => import('../views/WordBook.vue'),
+        meta: { title: '单词本', requiresAuth: true, requiresUser: true }
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('../views/ProfileView.vue'),
@@ -126,6 +132,12 @@ const routes: RouteRecordRaw[] = [
         name: 'MenuManagement',
         component: () => import('../views/system/MenuManagement.vue'),
         meta: { title: '菜单管理', requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: 'system/word',
+        name: 'WordManagement',
+        component: () => import('../views/system/WordManagement.vue'),
+        meta: { title: '单词管理', requiresAuth: true, requiresAdmin: true }
       }
     ]
   },

@@ -189,3 +189,43 @@ export const menuApi = {
   update: (id: number, data: SysMenu) => request.put(`/system/menus/${id}`, data),
   remove: (id: number) => request.delete(`/system/menus/${id}`)
 }
+
+// ---------------- 单词管理 ----------------
+export interface WordItem {
+  id?: number
+  english: string
+  chinese: string
+  phonetic?: string
+  partOfSpeech?: string
+  category?: string
+  difficulty?: number
+  exampleSentence?: string
+  exampleTranslation?: string
+  source?: 'UPLOAD' | 'GENERATED'
+  isPublished?: number
+  createTime?: string
+  updateTime?: string
+}
+
+export interface AiGenerateResult {
+  created: number
+  skipped: number
+  error: string | null
+}
+
+export const wordApi = {
+  page: (params: { keyword?: string; category?: string; pageNum?: number; pageSize?: number }) =>
+    request.get('/system/words', { params }),
+  categories: () => request.get('/system/words/categories'),
+  create: (data: WordItem) => request.post('/system/words', data),
+  batchCreate: (list: WordItem[]) => request.post('/system/words/batch', list),
+  update: (id: number, data: WordItem) => request.put(`/system/words/${id}`, data),
+  remove: (id: number) => request.delete(`/system/words/${id}`),
+  batchDelete: (ids: number[]) => request.delete('/system/words/batch', { data: { ids } }),
+  togglePublish: (id: number, published: number) =>
+    request.put(`/system/words/${id}/publish`, { published }),
+  aiGenerate: (data: { count: number; category?: string; difficulty?: number; topic?: string }) =>
+    request.post('/system/words/ai-generate', data),
+  exportCsv: (params: { keyword?: string; category?: string }) =>
+    request.get('/system/words/export', { params, responseType: 'blob' })
+}

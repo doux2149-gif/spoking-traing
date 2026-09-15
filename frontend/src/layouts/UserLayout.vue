@@ -13,6 +13,7 @@
           <router-link to="/scenes" class="nav-link">场景练习</router-link>
           <router-link to="/scenes/records" class="nav-link">练习记录</router-link>
           <router-link to="/checkin" class="nav-link">我的打卡</router-link>
+          <router-link to="/words" class="nav-link">单词本</router-link>
         </nav>
         <div class="user-area">
           <el-dropdown trigger="click" @command="handleCommand">
