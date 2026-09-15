@@ -170,7 +170,12 @@ router.beforeEach((to, _from, next) => {
     document.title = `${to.meta.title} - AI 英语口语对话系统`
   }
 
-  if (to.path === '/login' || to.path === '/register' || to.path === '/landing') {
+  // 已登录但访问不需要 auth 的公开页 → 直接跳主界面
+  if (to.path === '/landing' || to.path === '/login' || to.path === '/register') {
+    if (token) {
+      next(userStore.isAdmin() ? '/system/user' : '/chat')
+      return
+    }
     next()
     return
   }
